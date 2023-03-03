@@ -106,7 +106,45 @@ void SemanticChecker::visit(SimpleRValue& v)
 
 void SemanticChecker::visit(FunDef& f)
 {
-
+  DataType return_type = f.return_type;
+  //check return type is a valid type
+  if((return_type.type_name != "int") && (return_type.type_name != "double") && (return_type.type_name != "char") && (return_type.type_name != "string") && (return_type.type_name != "bool") && (return_type.type_name != "void"))
+  {
+    error("invalid return type");
+  }
+  //check param type is correct
+  for(int i = 0; i < f.params.size(); i++)
+  {
+    if((f.params[i].data_type.type_name != "int") && (f.params[i].data_type.type_name != "double") && (f.params[i].data_type.type_name != "char") && (f.params[i].data_type.type_name != "string") && (f.params[i].data_type.type_name != "bool"))
+    {
+      if(!symbol_table.name_exists(f.params[i].data_type.type_name))
+      {
+        error("invalid parameter type '" + f.params[i].data_type.type_name + "'", f.params[i].var_name);
+      }
+    }
+    //check params are different
+    for(int j = i + 1; j < f.params.size(); j++)
+    {
+      if(f.params[i].var_name.lexeme() == f.params[j].var_name.lexeme())
+      {
+        error("Multiple parameters of name '" + f.params[i].var_name.lexeme() + "'", f.params[i].var_name);
+      }
+    }
+  }
+  symbol_table.push_environment();
+  symbol_table.add("return", return_type);
+  //add parameter name to enviroment 
+  for(int i = 0; i < f.params.size(); i++)
+  {
+    symbol_table.add(f.params[i].var_name.lexeme(), f.params[i].data_type);
+  }
+  //loop stmts
+  for(auto s : f.stmts)
+  {
+    s->accept(*this);
+  }
+  //pop environment
+  symbol_table.pop_environment();
 }
 
 
@@ -154,7 +192,25 @@ void SemanticChecker::visit(AssignStmt& s)
 
 void SemanticChecker::visit(CallExpr& e)
 {
-
+  string fun_name = e.fun_name.lexeme();
+  if(fun_name == "print")
+  {
+    if(!(e.args.size() == 1))
+    {
+      error("Invalid number of parameters");
+    }
+    e.args[0].accept(*this);
+    if(!((curr_type.type_name == "string") && (curr_type.type_name == "char") && (curr_type.type_name == "char")))
+    {
+      error("Invalid parameter type");
+    }
+    /*
+    if(!(curr_type == symbol_table.get("return_type")))
+    {
+      error("Invalid return type");
+    }
+    */
+  }
 }
 
 
@@ -166,7 +222,7 @@ void SemanticChecker::visit(Expr& e)
 
 void SemanticChecker::visit(SimpleTerm& t)
 {
-
+  t.rvalue->accept(*this);
 } 
 
 
