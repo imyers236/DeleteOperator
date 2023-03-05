@@ -10,6 +10,7 @@
 #include "semantic_checker.h"
 
 
+
 using namespace std;
 
 // hash table of names of the base data types and built-in functions
@@ -150,7 +151,36 @@ void SemanticChecker::visit(FunDef& f)
 
 void SemanticChecker::visit(StructDef& s)
 {
-
+  for(int i = 0; i < s.fields.size(); i++)
+    {
+      if((s.fields[i].data_type.type_name != "int") && (s.fields[i].data_type.type_name != "double") && (s.fields[i].data_type.type_name != "char") && (s.fields[i].data_type.type_name != "string") && (s.fields[i].data_type.type_name != "bool"))
+      {
+        if(!(symbol_table.name_exists(s.fields[i].data_type.type_name)) && ((s.fields[i].data_type.type_name != s.struct_name.lexeme())))
+        {
+          error("invalid struct type '" + s.fields[i].data_type.type_name + "'", s.fields[i].var_name);
+        }
+      }
+      //check fields are different
+      for(int j = i + 1; j < s.fields.size(); j++)
+      {
+        if(s.fields[i].var_name.lexeme() == s.fields[j].var_name.lexeme())
+        {
+          error("Multiple structs of name '" + s.fields[i].var_name.lexeme() + "'", s.fields[i].var_name);
+        }
+      }
+    }
+  DataType d;
+  d.type_name = s.struct_name.lexeme();
+  d.is_array = false;
+  symbol_table.add(d.type_name,d);
+  symbol_table.push_environment();
+  //add fields name to enviroment 
+  for(int i = 0; i < s.fields.size(); i++)
+  {
+    symbol_table.add(s.fields[i].var_name.lexeme(), s.fields[i].data_type);
+  }
+  //pop environment
+  symbol_table.pop_environment();
 }
 
 
