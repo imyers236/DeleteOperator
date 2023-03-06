@@ -118,7 +118,7 @@ void SemanticChecker::visit(FunDef& f)
   {
     if((f.params[i].data_type.type_name != "int") && (f.params[i].data_type.type_name != "double") && (f.params[i].data_type.type_name != "char") && (f.params[i].data_type.type_name != "string") && (f.params[i].data_type.type_name != "bool"))
     {
-      if(!symbol_table.name_exists(f.params[i].data_type.type_name))
+      if(!symbol_table.name_exists(f.params[i].data_type.type_name) && !(struct_defs.contains(f.params[i].data_type.type_name)))
       {
         error("invalid parameter type '" + f.params[i].data_type.type_name + "'", f.params[i].var_name);
       }
@@ -155,7 +155,7 @@ void SemanticChecker::visit(StructDef& s)
     {
       if((s.fields[i].data_type.type_name != "int") && (s.fields[i].data_type.type_name != "double") && (s.fields[i].data_type.type_name != "char") && (s.fields[i].data_type.type_name != "string") && (s.fields[i].data_type.type_name != "bool"))
       {
-        if(!(symbol_table.name_exists(s.fields[i].data_type.type_name)) && ((s.fields[i].data_type.type_name != s.struct_name.lexeme())))
+        if(!(symbol_table.name_exists(s.fields[i].data_type.type_name)) && !(struct_defs.contains(s.fields[i].data_type.type_name)))
         {
           error("invalid struct type '" + s.fields[i].data_type.type_name + "'", s.fields[i].var_name);
         }
@@ -169,11 +169,6 @@ void SemanticChecker::visit(StructDef& s)
         }
       }
     }
-  DataType d;
-  d.type_name = s.struct_name.lexeme();
-  d.is_array = false;
-  symbol_table.add(d.type_name,d);
-  symbol_table.push_environment();
   //add fields name to enviroment 
   for(int i = 0; i < s.fields.size(); i++)
   {
@@ -210,7 +205,19 @@ void SemanticChecker::visit(IfStmt& s)
 
 void SemanticChecker::visit(VarDeclStmt& s)
 {
-
+  if((s.var_def.data_type.type_name != "int") && (s.var_def.data_type.type_name != "double") && (s.var_def.data_type.type_name != "char") && (s.var_def.data_type.type_name != "string") && (s.var_def.data_type.type_name != "bool"))
+    {
+      if(!(symbol_table.name_exists(s.var_def.data_type.type_name)) && !(struct_defs.contains(s.var_def.data_type.type_name)))
+        {
+          error("invalid variable declaration type '" + s.var_def.data_type.type_name + "'", s.var_def.var_name);
+        }
+    }
+  if(symbol_table.name_exists_in_curr_env(s.var_def.var_name.lexeme()))
+        {
+          error("Multiple vars of name '" + s.var_def.var_name.lexeme() + "' in current in enviroment", s.var_def.var_name);
+        }
+  symbol_table.add(s.var_def.var_name.lexeme(), s.var_def.data_type);
+  s.expr.accept(*this);
 }
 
 
@@ -241,6 +248,18 @@ void SemanticChecker::visit(CallExpr& e)
     }
     */
   }
+  if(fun_name == "get")
+  {
+    if(!(e.args.size() == 2))
+    {
+      error("Invalid number of parameters");
+    }
+    e.args[0].accept(*this);
+    if(!(curr_type == symbol_table.get("return_type")))
+    {
+      error("Invalid return type");
+    }
+  }
 }
 
 
@@ -258,13 +277,19 @@ void SemanticChecker::visit(SimpleTerm& t)
 
 void SemanticChecker::visit(ComplexTerm& t)
 {
-
+  t.expr.accept(*this);
 }
 
 
 void SemanticChecker::visit(NewRValue& v)
 {
-
+  if((v.type.lexeme() != "int") && (v.type.lexeme() != "double") && (v.type.lexeme() != "char") && (v.type.lexeme() != "string") && (v.type.lexeme() != "bool"))
+    {
+      if(!(symbol_table.name_exists(v.type.lexeme())) && !(struct_defs.contains(v.type.lexeme())))
+        {
+          error("invalid New Rvalue Type type '" + v.type.lexeme() + "'", v.type);
+        }
+    }
 }
 
 
