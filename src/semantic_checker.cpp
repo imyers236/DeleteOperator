@@ -181,27 +181,54 @@ void SemanticChecker::visit(StructDef& s)
 
 void SemanticChecker::visit(ReturnStmt& s)
 {
-
+  s.expr.accept(*this);
 }
 
 
 void SemanticChecker::visit(WhileStmt& s)
 {
-
+  s.condition.accept(*this);
+  if((curr_type.type_name != "bool") || (curr_type.is_array))
+  {
+    error("Type mismatch", s.condition.first_token());
+  }
+  symbol_table.push_environment();
+  for(auto t : s.stmts)
+  {
+    t->accept(*this);
+  }
+  symbol_table.pop_environment();
 }
 
 
 void SemanticChecker::visit(ForStmt& s)
 {
-
+  s.condition.accept(*this);
+  if((curr_type.type_name != "bool") || (curr_type.is_array))
+  {
+    error("Type mismatch", s.condition.first_token());
+  }
+  symbol_table.push_environment();
+  s.var_decl.accept(*this);
+  s.assign_stmt.accept(*this);
+  for(auto t : s.stmts)
+  {
+    t->accept(*this);
+  }
+  symbol_table.pop_environment();
 }
 
 
 void SemanticChecker::visit(IfStmt& s)
 {
-
-}
-
+  symbol_table.push_environment();
+  s.if_part.condition.accept(*this);
+  for(auto t : s.if_part.stmts)
+  {
+    t->accept(*this);
+  }
+  symbol_table.pop_environment();
+} 
 
 void SemanticChecker::visit(VarDeclStmt& s)
 {
@@ -218,12 +245,28 @@ void SemanticChecker::visit(VarDeclStmt& s)
         }
   symbol_table.add(s.var_def.var_name.lexeme(), s.var_def.data_type);
   s.expr.accept(*this);
+  if(((curr_type.type_name != s.var_def.data_type.type_name) && (curr_type.type_name != "void")) || (curr_type.is_array != s.var_def.data_type.is_array))
+    {
+      error("Type mismatch", s.var_def.var_name);
+    }
 }
 
 
 void SemanticChecker::visit(AssignStmt& s)
 {
-
+  s.expr.accept(*this);
+  if(s.lvalue.size() < 2)
+  {
+    DataType lhs = *symbol_table.get(s.lvalue[0].var_name.lexeme()); 
+    if((curr_type.type_name != lhs.type_name) || (curr_type.is_array != lhs.is_array))
+    {
+      error("Type mismatch", s.lvalue[0].var_name);
+    }
+  }
+  else
+  {
+    //for dots and arrays
+  }
 }
 
 
@@ -255,7 +298,7 @@ void SemanticChecker::visit(CallExpr& e)
       error("Invalid number of parameters");
     }
     e.args[0].accept(*this);
-    if(!(curr_type == symbol_table.get("return_type")))
+    //if(!(curr_type == symbol_table.get("return_type")))
     {
       error("Invalid return type");
     }
@@ -265,6 +308,36 @@ void SemanticChecker::visit(CallExpr& e)
 
 void SemanticChecker::visit(Expr& e)
 {
+  e.first->accept(*this);
+  DataType lhs = curr_type;
+  if(e.op.has_value())
+  {
+    e.rest->accept(*this);
+    DataType rhs = curr_type;
+    if((lhs.type_name != rhs.type_name) || (lhs.is_array != rhs.is_array))
+    {
+      error("Type mismatch within expression", e.first_token());
+    }
+    if((e.op.value().lexeme() == "+") || (e.op.value().lexeme() == "-") || (e.op.value().lexeme() == "*") || (e.op.value().lexeme() == "/"))
+    {
+      if((lhs.type_name != rhs.type_name) && (lhs.type_name != "double") && (lhs.type_name != "int"))
+      {
+        error("Invalid type cannot use " + lhs.type_name + " with " + e.op.value().lexeme(), e.first_token());
+      }
+    }
+    else if((e.op.value().lexeme() == "==") || (e.op.value().lexeme() == "!="))
+    {
+      curr_type.type_name = "bool";
+    }
+    if((e.op.value().lexeme() == "<") || (e.op.value().lexeme() == "<=") || (e.op.value().lexeme() == ">") || (e.op.value().lexeme() == ">="))
+    {
+      if((lhs.type_name != "double") && (lhs.type_name != "int") && (lhs.type_name != "char") && (lhs.type_name != "string"))
+      {
+        error("Invalid type cannot use " + lhs.type_name + " with " + e.op.value().lexeme(), e.first_token());
+      }
+      curr_type.type_name = "bool";
+    }
+  }
 
 }
 
