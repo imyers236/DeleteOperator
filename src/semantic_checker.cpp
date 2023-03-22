@@ -182,6 +182,21 @@ void SemanticChecker::visit(StructDef& s)
 void SemanticChecker::visit(ReturnStmt& s)
 {
   s.expr.accept(*this);
+  DataType expected_type = symbol_table.get("return").value();
+  if(expected_type.type_name != "void")
+  {
+    if((expected_type.type_name != curr_type.type_name) || (expected_type.is_array != curr_type.is_array))
+    {
+      if(curr_type.type_name != "void")
+      {
+        error("Type mismatch returning " + curr_type.type_name + " when expected " + expected_type.type_name);
+      }
+    }
+  }
+  else
+  {
+    error("Type mismatch, trying to return a void");
+  }
 }
 
 
@@ -223,9 +238,29 @@ void SemanticChecker::visit(IfStmt& s)
 {
   symbol_table.push_environment();
   s.if_part.condition.accept(*this);
+  if(curr_type.type_name != "bool" || curr_type.is_array)
+  {
+    error("Type mismatch must have a bool in if condition");
+  }
   for(auto t : s.if_part.stmts)
   {
     t->accept(*this);
+  }
+  for(auto e : s.else_ifs)
+  {
+    e.condition.accept(*this);
+    if(curr_type.type_name != "bool" || curr_type.is_array)
+    {
+      error("Type mismatch must have a bool in if condition");
+    }
+    for(int i = 0; i < e.stmts.size(); i++)
+    {
+      e.stmts[i]->accept(*this);
+    }
+  }
+  for(auto e : s.else_stmts)
+  {
+    e->accept(*this);
   }
   symbol_table.pop_environment();
 } 
@@ -239,6 +274,10 @@ void SemanticChecker::visit(VarDeclStmt& s)
           error("invalid variable declaration type '" + s.var_def.data_type.type_name + "'", s.var_def.var_name);
         }
     }
+  else if(s.var_def.data_type.is_array == true)
+  {
+    curr_type = {true, s.var_def.data_type.type_name};
+  }
   if(symbol_table.name_exists_in_curr_env(s.var_def.var_name.lexeme()))
         {
           error("Multiple vars of name '" + s.var_def.var_name.lexeme() + "' in current in enviroment", s.var_def.var_name);
@@ -277,31 +316,110 @@ void SemanticChecker::visit(CallExpr& e)
   {
     if(!(e.args.size() == 1))
     {
-      error("Invalid number of parameters");
+      error("Invalid number of parameters", e.first_token());
     }
     e.args[0].accept(*this);
-    if(!((curr_type.type_name == "string") && (curr_type.type_name == "char") && (curr_type.type_name == "char")))
+    if(curr_type.is_array)
     {
-      error("Invalid parameter type");
+      error("Invalid parameters for argument one cannot have an array", e.first_token());
     }
-    /*
-    if(!(curr_type == symbol_table.get("return_type")))
-    {
-      error("Invalid return type");
-    }
-    */
+    curr_type = {false,"void"};
   }
   if(fun_name == "get")
   {
     if(!(e.args.size() == 2))
     {
-      error("Invalid number of parameters");
+      error("Invalid number of parameters", e.first_token());
     }
     e.args[0].accept(*this);
-    //if(!(curr_type == symbol_table.get("return_type")))
+    if((curr_type.type_name != "int") || (curr_type.is_array))
     {
-      error("Invalid return type");
+      error("Invalid parameter type cannot have " + curr_type.type_name, e.first_token());
     }
+    e.args[1].accept(*this);
+    if((curr_type.type_name != "string") || (curr_type.is_array))
+    {
+      error("Invalid parameter type cannot have " + curr_type.type_name, e.first_token());
+    }
+    curr_type = {false,"char"};
+  }
+  if(fun_name == "to_string")
+  {
+    if(!(e.args.size() == 1))
+    {
+      error("Invalid number of parameters", e.first_token());
+    }
+    e.args[0].accept(*this);
+    if((curr_type.type_name == "void") || (curr_type.type_name == "bool") || (curr_type.is_array))
+    {
+      error("Invalid parameter type cannot have " + curr_type.type_name, e.first_token());
+    }
+    curr_type = {false,"string"};
+  }
+  if(fun_name == "input")
+  {
+    if(!(e.args.size() == 0))
+    {
+      error("Invalid number of parameters", e.first_token());
+    }
+    curr_type = {false,"string"};
+  }
+  if(fun_name == "to_int")
+  {
+    if(!(e.args.size() == 1))
+    {
+      error("Invalid number of parameters", e.first_token());
+    }
+    e.args[0].accept(*this);
+    if((curr_type.type_name == "void") || (curr_type.type_name == "bool") || (curr_type.is_array) || (curr_type.type_name == "int"))
+    {
+      error("Invalid parameter type cannot have " + curr_type.type_name, e.first_token());
+    }
+    curr_type = {false,"int"};
+  }
+  if(fun_name == "to_double")
+  {
+    if(!(e.args.size() == 1))
+    {
+      error("Invalid number of parameters", e.first_token());
+    }
+    e.args[0].accept(*this);
+    if((curr_type.type_name == "void") || (curr_type.type_name == "bool") || (curr_type.is_array) || (curr_type.type_name == "double"))
+    {
+      error("Invalid parameter type cannot have " + curr_type.type_name, e.first_token());
+    }
+    curr_type = {false,"double"};
+  }
+  if(fun_name == "length")
+  {
+    if(!(e.args.size() == 1))
+    {
+      error("Invalid number of parameters", e.first_token());
+    }
+    e.args[0].accept(*this);
+    if((curr_type.type_name != "string") && !(curr_type.is_array))
+    {
+      error("Invalid parameter type cannot have " + curr_type.type_name, e.first_token());
+    }
+    curr_type = {false,"int"};
+  }
+  if(fun_name == "concat")
+  {
+    if(!(e.args.size() == 2))
+    {
+      error("Invalid number of parameters", e.first_token());
+    }
+    e.args[0].accept(*this);
+    if((curr_type.type_name != "string") || (curr_type.is_array))
+    {
+      error("Invalid parameter type cannot have " + curr_type.type_name, e.first_token());
+    }
+    e.args[1].accept(*this);
+    if((curr_type.type_name != "string") || (curr_type.is_array))
+    {
+      error("Invalid parameter type cannot have " + curr_type.type_name, e.first_token());
+    }
+    curr_type = {false,"string"};
   }
 }
 
@@ -314,24 +432,44 @@ void SemanticChecker::visit(Expr& e)
   {
     e.rest->accept(*this);
     DataType rhs = curr_type;
-    if((lhs.type_name != rhs.type_name) || (lhs.is_array != rhs.is_array))
-    {
-      error("Type mismatch within expression", e.first_token());
-    }
     if((e.op.value().lexeme() == "+") || (e.op.value().lexeme() == "-") || (e.op.value().lexeme() == "*") || (e.op.value().lexeme() == "/"))
     {
-      if((lhs.type_name != rhs.type_name) && (lhs.type_name != "double") && (lhs.type_name != "int"))
+      if((lhs.type_name != rhs.type_name) || (lhs.is_array != rhs.is_array))
+      {
+        error("Type mismatch must have same type for " + e.op.value().lexeme(), e.op.value());
+      }
+      if((lhs.type_name != "double") && (lhs.type_name != "int") && (rhs.type_name != "double") && (rhs.type_name != "int"))
       {
         error("Invalid type cannot use " + lhs.type_name + " with " + e.op.value().lexeme(), e.first_token());
       }
     }
     else if((e.op.value().lexeme() == "==") || (e.op.value().lexeme() == "!="))
     {
+      if((lhs.type_name != rhs.type_name) && (lhs.type_name != "void") && (rhs.type_name != "void"))
+      {
+        error("Invalid type cannot use " + lhs.type_name + " with " + e.op.value().lexeme(), e.first_token());
+      }
+      curr_type = DataType {false, "bool"};
+    }
+    else if((e.op.value().lexeme() == "<") || (e.op.value().lexeme() == "<=") || (e.op.value().lexeme() == ">") || (e.op.value().lexeme() == ">="))
+    {
+      if((lhs.type_name != rhs.type_name) || (lhs.is_array != rhs.is_array))
+      {
+        error("Type mismatch must have same type for " + e.op.value().lexeme(), e.op.value());
+      }
+      if((lhs.type_name != "double") && (lhs.type_name != "int") && (lhs.type_name != "char") && (lhs.type_name != "string") && (rhs.type_name != "double") && (rhs.type_name != "int") && (rhs.type_name != "char") && (rhs.type_name != "string"))
+      {
+        error("Invalid type cannot use " + lhs.type_name + " with " + e.op.value().lexeme(), e.first_token());
+      }
       curr_type.type_name = "bool";
     }
-    if((e.op.value().lexeme() == "<") || (e.op.value().lexeme() == "<=") || (e.op.value().lexeme() == ">") || (e.op.value().lexeme() == ">="))
+    else if((e.op.value().lexeme() == "and") || (e.op.value().lexeme() == "or") || (e.op.value().lexeme() == "not"))
     {
-      if((lhs.type_name != "double") && (lhs.type_name != "int") && (lhs.type_name != "char") && (lhs.type_name != "string"))
+      if((lhs.type_name != rhs.type_name) || (lhs.is_array != rhs.is_array))
+      {
+        error("Type mismatch must have same type for " + e.op.value().lexeme(), e.op.value());
+      }
+      if((lhs.type_name != "bool") && (rhs.type_name != "bool"))
       {
         error("Invalid type cannot use " + lhs.type_name + " with " + e.op.value().lexeme(), e.first_token());
       }
@@ -363,11 +501,33 @@ void SemanticChecker::visit(NewRValue& v)
           error("invalid New Rvalue Type type '" + v.type.lexeme() + "'", v.type);
         }
     }
+    if(v.array_expr.has_value())
+    {
+      curr_type = {true, v.type.lexeme()};
+    }
+    else
+    {
+      curr_type = {false, v.type.lexeme()};
+    }
+    
 }
 
 
 void SemanticChecker::visit(VarRValue& v)
 {
-
+  string var_name = v.path[0].var_name.lexeme();
+  if(symbol_table.name_exists(var_name))
+  {
+    DataType d = symbol_table.get(var_name).value();
+    curr_type.type_name = d.type_name;
+    if(d.is_array)
+    {
+      curr_type.is_array= true;
+    }
+    else
+    {
+      curr_type.is_array= false;
+    }
+  }
 }    
 
