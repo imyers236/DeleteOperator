@@ -49,6 +49,12 @@ void SemanticChecker::error(const string& msg)
 // visitor functions
 
 
+/**
+ * We first record each struct definition in the `struct_defs` map, then we record each function
+ * definition in the `fun_defs` map, and finally we check each struct and function definition
+ * 
+ * @param p the program to check
+ */
 void SemanticChecker::visit(Program& p)
 {
   // record each struct def
@@ -319,13 +325,17 @@ void SemanticChecker::visit(CallExpr& e)
       error("Invalid number of parameters", e.first_token());
     }
     e.args[0].accept(*this);
+    if(struct_defs.contains(curr_type.type_name))
+    {
+      error("Cannot print type struct", e.first_token());
+    }
     if(curr_type.is_array)
     {
       error("Invalid parameters for argument one cannot have an array", e.first_token());
     }
     curr_type = {false,"void"};
   }
-  if(fun_name == "get")
+  else if(fun_name == "get")
   {
     if(!(e.args.size() == 2))
     {
@@ -343,7 +353,7 @@ void SemanticChecker::visit(CallExpr& e)
     }
     curr_type = {false,"char"};
   }
-  if(fun_name == "to_string")
+  else if(fun_name == "to_string")
   {
     if(!(e.args.size() == 1))
     {
@@ -356,7 +366,7 @@ void SemanticChecker::visit(CallExpr& e)
     }
     curr_type = {false,"string"};
   }
-  if(fun_name == "input")
+  else if(fun_name == "input")
   {
     if(!(e.args.size() == 0))
     {
@@ -364,7 +374,7 @@ void SemanticChecker::visit(CallExpr& e)
     }
     curr_type = {false,"string"};
   }
-  if(fun_name == "to_int")
+  else if(fun_name == "to_int")
   {
     if(!(e.args.size() == 1))
     {
@@ -377,7 +387,7 @@ void SemanticChecker::visit(CallExpr& e)
     }
     curr_type = {false,"int"};
   }
-  if(fun_name == "to_double")
+  else if(fun_name == "to_double")
   {
     if(!(e.args.size() == 1))
     {
@@ -390,7 +400,7 @@ void SemanticChecker::visit(CallExpr& e)
     }
     curr_type = {false,"double"};
   }
-  if(fun_name == "length")
+  else if(fun_name == "length")
   {
     if(!(e.args.size() == 1))
     {
@@ -403,7 +413,7 @@ void SemanticChecker::visit(CallExpr& e)
     }
     curr_type = {false,"int"};
   }
-  if(fun_name == "concat")
+  else if(fun_name == "concat")
   {
     if(!(e.args.size() == 2))
     {
@@ -421,6 +431,28 @@ void SemanticChecker::visit(CallExpr& e)
     }
     curr_type = {false,"string"};
   }
+  else if(fun_defs.contains(fun_name))
+  {
+    FunDef f = fun_defs[fun_name];
+    if(e.args.size() != f.params.size())
+    {
+      error("Invalid number of parameters", e.first_token());
+    }
+    for(int i = 0; i < e.args.size(); i++)
+    {
+      DataType param = f.params[i].data_type;
+      e.args[i].accept(*this);
+      if((curr_type.type_name != param.type_name) || (curr_type.is_array != param.is_array))
+      {
+        error("Invalid parameter type cannot have " + curr_type.type_name, e.first_token());
+      }
+    }
+  }
+  else
+  {
+    error("Function used before defined", e.first_token());
+  }
+
 }
 
 
@@ -515,19 +547,41 @@ void SemanticChecker::visit(NewRValue& v)
 
 void SemanticChecker::visit(VarRValue& v)
 {
-  string var_name = v.path[0].var_name.lexeme();
-  if(symbol_table.name_exists(var_name))
+  
+  if(v.path.size() == 1)
   {
-    DataType d = symbol_table.get(var_name).value();
-    curr_type.type_name = d.type_name;
-    if(d.is_array)
+    string var_name = v.path[0].var_name.lexeme();
+    if(symbol_table.name_exists(var_name))
     {
-      curr_type.is_array= true;
-    }
-    else
-    {
-      curr_type.is_array= false;
+      DataType d = symbol_table.get(var_name).value();
+      curr_type.type_name = d.type_name;
+      if(d.is_array)
+      {
+        curr_type.is_array= true;
+      }
+      else
+      {
+        curr_type.is_array= false;
+      }
     }
   }
+  else
+  {
+    DataType curr;
+    DataType prev;
+    for(int i = 0; i < v.path.size(); i++)
+    {
+      string name = v.path[i].var_name.lexeme();
+      if(symbol_table.name_exists(name))
+      {
+        curr = symbol_table.get(name).value();
+        if(struct_defs.contains(curr.type_name))
+        {
+          if(get_field(struct_defs[name], name).value().data_type.is_array)
+        }
+      }
+    }
+  }
+
 }    
 
