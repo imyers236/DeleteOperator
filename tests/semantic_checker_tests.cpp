@@ -1336,7 +1336,7 @@ TEST(BasicSemanticCheckerTests, VarDeclWithTypeMismatch) {
 TEST(BasicSemanticCheckerTests, ReturnFunctionCallMismatch) {
   stringstream in(build_string({
         "int f() {return 5}", 
-        "int f() {return f()}", 
+        "double t() {return f()}", 
         "void main() {}",
       }));
   SemanticChecker checker;
