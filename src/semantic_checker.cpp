@@ -50,8 +50,8 @@ void SemanticChecker::error(const string& msg)
 
 
 /**
- * We first record each struct definition in the `struct_defs` map, then we record each function
- * definition in the `fun_defs` map, and finally we check each struct and function definition
+ * inputs each struct definition in the 'struct_defs' map and each function
+ * definition in the 'fun_defs' map and checks each struct and function definition
  * 
  * @param p the program to check
  */
@@ -109,8 +109,14 @@ void SemanticChecker::visit(SimpleRValue& v)
 }
 
 
-// TODO: Implement the rest of the visitor functions (stubbed out below)
 
+
+/**
+ * This function checks that the return type and parameter types are valid, that the
+ * parameter names are unique, and that the statements in the function are valid
+ * 
+ * @param f The function definition node
+ */
 void SemanticChecker::visit(FunDef& f)
 {
   DataType return_type = f.return_type;
@@ -155,6 +161,11 @@ void SemanticChecker::visit(FunDef& f)
 }
 
 
+/**
+ * It checks the structs for duplicates and correct types.
+ * 
+ * @param s The StructDef node that is being visited.
+ */
 void SemanticChecker::visit(StructDef& s)
 {
   for(int i = 0; i < s.fields.size(); i++)
@@ -186,6 +197,12 @@ void SemanticChecker::visit(StructDef& s)
 }
 
 
+/**
+ * If the return type of the function is not void, then the return statement must return a value of the
+ * same type as the function
+ * 
+ * @param s The return statement being visited.
+ */
 void SemanticChecker::visit(ReturnStmt& s)
 {
   s.expr.accept(*this);
@@ -197,6 +214,12 @@ void SemanticChecker::visit(ReturnStmt& s)
 }
 
 
+/**
+ * Checks the condition, and then check the statements
+ * in the while loop
+ * 
+ * @param s The WhileStmt object that is being visited.
+ */
 void SemanticChecker::visit(WhileStmt& s)
 {
   symbol_table.push_environment();
@@ -213,6 +236,12 @@ void SemanticChecker::visit(WhileStmt& s)
 }
 
 
+/**
+ * We push a new environment onto the symbol table, visit the variable declaration, condition, and
+ * assignment statement, and then visit each statement in the for loop. 
+ * 
+ * @param s The statement being visited.
+ */
 void SemanticChecker::visit(ForStmt& s)
 {
   symbol_table.push_environment();
@@ -231,6 +260,12 @@ void SemanticChecker::visit(ForStmt& s)
 }
 
 
+/**
+ * Checks the condition, checks the if statements, checks the
+ * else ifs and checks the else statements
+ * 
+ * @param s The if statement that is being visited.
+ */
 void SemanticChecker::visit(IfStmt& s)
 {
   symbol_table.push_environment();
@@ -266,6 +301,11 @@ void SemanticChecker::visit(IfStmt& s)
   symbol_table.pop_environment();
 } 
 
+/**
+ * It checks if the variable is of a valid type, and if it is not, it throws an error.
+ * 
+ * @param s The VarDeclStmt being visited
+ */
 void SemanticChecker::visit(VarDeclStmt& s)
 {
   if((s.var_def.data_type.type_name != "int") && (s.var_def.data_type.type_name != "double") && (s.var_def.data_type.type_name != "char") && (s.var_def.data_type.type_name != "string") && (s.var_def.data_type.type_name != "bool"))
@@ -299,6 +339,12 @@ void SemanticChecker::visit(VarDeclStmt& s)
 }
 
 
+/**
+ * We check that the type of the expression on the right hand side of the assignment statement is the
+ * same as the type of the variable on the left hand side of the assignment statement
+ * 
+ * @param s The AssignStmt being visited
+ */
 void SemanticChecker::visit(AssignStmt& s)
 {
   s.expr.accept(*this);
@@ -340,6 +386,12 @@ void SemanticChecker::visit(AssignStmt& s)
 }
 
 
+/**
+ * If the function is a built-in function, check that the parameters are correct. If the function is a
+ * user-defined function, check that the parameters are correct and is defined
+ * 
+ * @param e The expression being visited
+ */
 void SemanticChecker::visit(CallExpr& e)
 {
   string fun_name = e.fun_name.lexeme();
@@ -485,6 +537,12 @@ void SemanticChecker::visit(CallExpr& e)
 }
 
 
+/**
+ * The function checks the type of the first expression and checks if the type of the second expression
+ * is the same as the first expression. If the operator exist it checks that the types are correct for each operator
+ * 
+ * @param e The expression we are visiting
+ */
 void SemanticChecker::visit(Expr& e)
 {
   e.first->accept(*this);
@@ -541,18 +599,34 @@ void SemanticChecker::visit(Expr& e)
 }
 
 
+/**
+ * Visit the term.
+ * 
+ * @param t The node being visited.
+ */
 void SemanticChecker::visit(SimpleTerm& t)
 {
   t.rvalue->accept(*this);
 } 
 
 
+/**
+ * It checks that the expression in the complex term is valid
+ * 
+ * @param t the term being visited
+ */
 void SemanticChecker::visit(ComplexTerm& t)
 {
   t.expr.accept(*this);
 }
 
 
+/**
+ * If the type of the new expression is not a primitive type, then it must be a struct type that has
+ * been defined
+ * 
+ * @param v the node being visited
+ */
 void SemanticChecker::visit(NewRValue& v)
 {
   if((v.type.lexeme() != "int") && (v.type.lexeme() != "double") && (v.type.lexeme() != "char") && (v.type.lexeme() != "string") && (v.type.lexeme() != "bool"))
@@ -574,6 +648,11 @@ void SemanticChecker::visit(NewRValue& v)
 }
 
 
+/**
+ * If the variable exists, then set the current type to the type of the variable
+ * 
+ * @param v The VarRValue node that we're visiting.
+ */
 void SemanticChecker::visit(VarRValue& v)
 {
   string var_name = v.path[0].var_name.lexeme();

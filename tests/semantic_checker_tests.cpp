@@ -1267,8 +1267,168 @@ TEST(BasicSemanticCheckerTests, StructPathInvalidType) {
 // TODO: * Add at least 10 of your own negative tests below: 
 //----------------------------------------------------------------------
 
+TEST(BasicSemanticCheckerTests, MainMakesNewUndefinedStruct) {
+  stringstream in(build_string({
+        "void main() {S s = new S}",
+      }));
+  SemanticChecker checker;
+  try {
+    ASTParser(Lexer(in)).parse().accept(checker);
+    FAIL();
+  } catch (MyPLException& ex) {
+    string msg = ex.what();
+    ASSERT_TRUE(msg.starts_with("Static Error:"));
+  }
+}
 
+TEST(BasicSemanticCheckerTests, VarAndStructWithSameName) {
+  stringstream in(build_string({
+        "struct S {double val, S s}",
+        "void main() {",
+        "  int x = 0",
+        "  S x = new S",
+        "  char y = 'a'",
+        "}",
+      }));
+  SemanticChecker checker;
+  try {
+    ASTParser(Lexer(in)).parse().accept(checker);
+    FAIL();
+  } catch (MyPLException& ex) {
+    string msg = ex.what();
+    ASSERT_TRUE(msg.starts_with("Static Error:"));
+  }
+}
 
+TEST(BasicSemanticCheckerTests, BadIntAssign) {
+  stringstream in(build_string({
+        "void main() {",
+        "  int x1 = 3.5 + true",
+        "}",
+      }));
+  SemanticChecker checker;
+  try {
+    ASTParser(Lexer(in)).parse().accept(checker);
+    FAIL();
+  } catch (MyPLException& ex) {
+    string msg = ex.what();
+    ASSERT_TRUE(msg.starts_with("Static Error:"));
+  }
+}
+
+TEST(BasicSemanticCheckerTests, VarDeclWithTypeMismatch) {
+  stringstream in(build_string({
+        "void main() {",
+        "  bool x = true",
+        "  int y = x + 1",
+        "}",
+      }));
+  SemanticChecker checker;
+  try {
+    ASTParser(Lexer(in)).parse().accept(checker);
+    FAIL();
+  } catch (MyPLException& ex) {
+    string msg = ex.what();
+    ASSERT_TRUE(msg.starts_with("Static Error:"));
+  }
+}
+
+TEST(BasicSemanticCheckerTests, ReturnFunctionCallMismatch) {
+  stringstream in(build_string({
+        "int f() {return 5}", 
+        "int f() {return f()}", 
+        "void main() {}",
+      }));
+  SemanticChecker checker;
+  try {
+    ASTParser(Lexer(in)).parse().accept(checker);
+    FAIL();
+  } catch (MyPLException& ex) {
+    string msg = ex.what();
+    ASSERT_TRUE(msg.starts_with("Static Error:"));
+  }
+}
+
+TEST(BasicSemanticCheckerTests, NonBoolFunctionCallIfCondition) {
+  stringstream in(build_string({
+        "int f() {return 5}", 
+        "void main() {if (f()) {}}",
+      }));
+  SemanticChecker checker;
+  try {
+    ASTParser(Lexer(in)).parse().accept(checker);
+    FAIL();
+  } catch (MyPLException& ex) {
+    string msg = ex.what();
+    ASSERT_TRUE(msg.starts_with("Static Error:"));
+  }
+}
+
+TEST(BasicSemanticCheckerTests, BoolInVarDeclInForLoop) {
+  stringstream in("void main() {for(int i = true; i < 1; i = i + 1) {}}");
+  SemanticChecker checker;
+  try {
+    ASTParser(Lexer(in)).parse().accept(checker);
+    FAIL();
+  } catch (MyPLException& ex) {
+    string msg = ex.what();
+    ASSERT_TRUE(msg.starts_with("Static Error:"));
+  }
+}
+
+TEST(BasicSemanticCheckerTests, StructPathInvalidArrayType) {
+  stringstream in(build_string({
+        "struct S {array double val, S s}",
+        "void main() {",
+        "  S s = new S",
+        "  s.s.val = new double[10]",
+        "  string x = s.s.val[0]", 
+        "}",
+      }));
+  SemanticChecker checker;
+  try {
+    ASTParser(Lexer(in)).parse().accept(checker);
+    FAIL();
+  } catch(MyPLException& ex) {
+    string msg = ex.what();
+    ASSERT_TRUE(msg.starts_with("Static Error:"));
+  }
+}
+
+TEST(BasicSemanticCheckerTests, StructPathInvalidTypeInIf) {
+  stringstream in(build_string({
+        "struct S {double val, S s}",
+        "void main() {",
+        "  S s = new S",
+        "  if(s.s.val) {}", 
+        "}",
+      }));
+  SemanticChecker checker;
+  try {
+    ASTParser(Lexer(in)).parse().accept(checker);
+    FAIL();
+  } catch(MyPLException& ex) {
+    string msg = ex.what();
+    ASSERT_TRUE(msg.starts_with("Static Error:"));
+  }
+}
+
+TEST(BasicSemanticCheckerTests, ArrayCallInvalidTypeInIf) {
+  stringstream in(build_string({
+        "void main() {",
+        "  array double val = new double[10]",
+        "  while(v[0]) {}", 
+        "}",
+      }));
+  SemanticChecker checker;
+  try {
+    ASTParser(Lexer(in)).parse().accept(checker);
+    FAIL();
+  } catch(MyPLException& ex) {
+    string msg = ex.what();
+    ASSERT_TRUE(msg.starts_with("Static Error:"));
+  }
+}
 //----------------------------------------------------------------------
 // main
 //----------------------------------------------------------------------
