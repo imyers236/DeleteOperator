@@ -175,6 +175,7 @@ void SemanticChecker::visit(StructDef& s)
         }
       }
     }
+  symbol_table.push_environment();
   //add fields name to enviroment 
   for(int i = 0; i < s.fields.size(); i++)
   {
@@ -189,31 +190,21 @@ void SemanticChecker::visit(ReturnStmt& s)
 {
   s.expr.accept(*this);
   DataType expected_type = symbol_table.get("return").value();
-  if(expected_type.type_name != "void")
+  if((symbol_table.get("return")->type_name != curr_type.type_name) && (curr_type.type_name != "void"))
   {
-    if((expected_type.type_name != curr_type.type_name) || (expected_type.is_array != curr_type.is_array))
-    {
-      if(curr_type.type_name != "void")
-      {
-        error("Type mismatch returning " + curr_type.type_name + " when expected " + expected_type.type_name);
-      }
-    }
-  }
-  else
-  {
-    error("Type mismatch, trying to return a void");
+    error("Type mismatch returning " + curr_type.type_name + " when expected " + expected_type.type_name, s.expr.first_token());
   }
 }
 
 
 void SemanticChecker::visit(WhileStmt& s)
 {
+  symbol_table.push_environment();
   s.condition.accept(*this);
   if((curr_type.type_name != "bool") || (curr_type.is_array))
   {
     error("Type mismatch", s.condition.first_token());
   }
-  symbol_table.push_environment();
   for(auto t : s.stmts)
   {
     t->accept(*this);
@@ -224,13 +215,13 @@ void SemanticChecker::visit(WhileStmt& s)
 
 void SemanticChecker::visit(ForStmt& s)
 {
+  symbol_table.push_environment();
+  s.var_decl.accept(*this);
   s.condition.accept(*this);
   if((curr_type.type_name != "bool") || (curr_type.is_array))
   {
     error("Type mismatch", s.condition.first_token());
   }
-  symbol_table.push_environment();
-  s.var_decl.accept(*this);
   s.assign_stmt.accept(*this);
   for(auto t : s.stmts)
   {
@@ -252,8 +243,10 @@ void SemanticChecker::visit(IfStmt& s)
   {
     t->accept(*this);
   }
+  symbol_table.pop_environment();
   for(auto e : s.else_ifs)
   {
+    symbol_table.push_environment();
     e.condition.accept(*this);
     if(curr_type.type_name != "bool" || curr_type.is_array)
     {
@@ -263,7 +256,9 @@ void SemanticChecker::visit(IfStmt& s)
     {
       e.stmts[i]->accept(*this);
     }
+    symbol_table.pop_environment();
   }
+  symbol_table.push_environment();
   for(auto e : s.else_stmts)
   {
     e->accept(*this);
@@ -282,17 +277,24 @@ void SemanticChecker::visit(VarDeclStmt& s)
     }
   else if(s.var_def.data_type.is_array == true)
   {
-    curr_type = {true, s.var_def.data_type.type_name};
+    curr_type = DataType {true, s.var_def.data_type.type_name};
   }
   if(symbol_table.name_exists_in_curr_env(s.var_def.var_name.lexeme()))
-        {
-          error("Multiple vars of name '" + s.var_def.var_name.lexeme() + "' in current in enviroment", s.var_def.var_name);
-        }
+  {
+    error("Multiple vars of name '" + s.var_def.var_name.lexeme() + "' in current in enviroment", s.var_def.var_name);
+  }
   symbol_table.add(s.var_def.var_name.lexeme(), s.var_def.data_type);
   s.expr.accept(*this);
-  if(((curr_type.type_name != s.var_def.data_type.type_name) && (curr_type.type_name != "void")) || (curr_type.is_array != s.var_def.data_type.is_array))
+  if(((curr_type.type_name != s.var_def.data_type.type_name) && (curr_type.type_name != "void")))
     {
-      error("Type mismatch", s.var_def.var_name);
+      if(s.var_def.data_type.is_array)
+      {
+        curr_type.is_array = true;
+      }
+      else
+      {
+        error("Type mismatch", s.var_def.var_name);
+      }
     }
 }
 
@@ -300,17 +302,40 @@ void SemanticChecker::visit(VarDeclStmt& s)
 void SemanticChecker::visit(AssignStmt& s)
 {
   s.expr.accept(*this);
+  DataType rhs = curr_type;
   if(s.lvalue.size() < 2)
   {
     DataType lhs = *symbol_table.get(s.lvalue[0].var_name.lexeme()); 
-    if((curr_type.type_name != lhs.type_name) || (curr_type.is_array != lhs.is_array))
+    if((curr_type.type_name != lhs.type_name))
     {
       error("Type mismatch", s.lvalue[0].var_name);
     }
   }
   else
   {
-    //for dots and arrays
+   string var_name = s.lvalue[0].var_name.lexeme();
+   if(symbol_table.name_exists(var_name))
+   {
+    DataType d = symbol_table.get(var_name).value();
+    curr_type = DataType(symbol_table.get(var_name)->is_array, symbol_table.get(var_name).value().type_name);
+    if(struct_defs.contains(curr_type.type_name))
+    {
+      for(int i = 1; i < s.lvalue.size(); i++)
+      {
+        string var_name2 = s.lvalue[i].var_name.lexeme();
+        VarDef field = get_field(struct_defs[curr_type.type_name], var_name2).value();
+        curr_type = {field.data_type.is_array, field.data_type.type_name};
+      }
+    }
+    if(curr_type.type_name != rhs.type_name)
+    {
+      error("Type mismatch between " + curr_type.type_name + " and " + rhs.type_name, s.lvalue[0].var_name);
+    }
+   }
+   else
+   {
+    error("Use before definition");
+   }
   }
 }
 
@@ -444,9 +469,13 @@ void SemanticChecker::visit(CallExpr& e)
       e.args[i].accept(*this);
       if((curr_type.type_name != param.type_name) || (curr_type.is_array != param.is_array))
       {
-        error("Invalid parameter type cannot have " + curr_type.type_name, e.first_token());
+        if(curr_type.type_name != "void")
+        {
+          error("Invalid parameter type cannot have " + curr_type.type_name, e.first_token());
+        }
       }
     }
+    curr_type = f.return_type;
   }
   else
   {
@@ -487,7 +516,7 @@ void SemanticChecker::visit(Expr& e)
     {
       if((lhs.type_name != rhs.type_name) || (lhs.is_array != rhs.is_array))
       {
-        error("Type mismatch must have same type for " + e.op.value().lexeme(), e.op.value());
+        error("Type mismatch must have same type for " + e.op.value().lexeme() + " cannot have type " + lhs.type_name + " with " + rhs.type_name, e.op.value());
       }
       if((lhs.type_name != "double") && (lhs.type_name != "int") && (lhs.type_name != "char") && (lhs.type_name != "string") && (rhs.type_name != "double") && (rhs.type_name != "int") && (rhs.type_name != "char") && (rhs.type_name != "string"))
       {
@@ -547,41 +576,23 @@ void SemanticChecker::visit(NewRValue& v)
 
 void SemanticChecker::visit(VarRValue& v)
 {
-  
-  if(v.path.size() == 1)
+  string var_name = v.path[0].var_name.lexeme();
+  if(symbol_table.name_exists(var_name))
   {
-    string var_name = v.path[0].var_name.lexeme();
-    if(symbol_table.name_exists(var_name))
+    DataType d = symbol_table.get(var_name).value();
+    curr_type = DataType(symbol_table.get(var_name)->is_array, symbol_table.get(var_name).value().type_name);
+    if(struct_defs.contains(curr_type.type_name))
     {
-      DataType d = symbol_table.get(var_name).value();
-      curr_type.type_name = d.type_name;
-      if(d.is_array)
+      for(int i = 1; i < v.path.size(); i++)
       {
-        curr_type.is_array= true;
-      }
-      else
-      {
-        curr_type.is_array= false;
+        string var_name2 = v.path[i].var_name.lexeme();
+        VarDef field = get_field(struct_defs[curr_type.type_name], var_name2).value();
+        curr_type = {field.data_type.is_array, field.data_type.type_name};
       }
     }
   }
   else
   {
-    DataType curr;
-    DataType prev;
-    for(int i = 0; i < v.path.size(); i++)
-    {
-      string name = v.path[i].var_name.lexeme();
-      if(symbol_table.name_exists(name))
-      {
-        curr = symbol_table.get(name).value();
-        if(struct_defs.contains(curr.type_name))
-        {
-          if(get_field(struct_defs[name], name).value().data_type.is_array)
-        }
-      }
-    }
+    error("Use before definition", v.first_token());
   }
-
-}    
-
+}
