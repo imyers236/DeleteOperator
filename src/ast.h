@@ -29,6 +29,7 @@ class ForStmt;
 class IfStmt;
 class VarDeclStmt;
 class AssignStmt;
+class DeleteStmt;
 class CallExpr;
 class Expr;
 class SimpleTerm;
@@ -53,7 +54,8 @@ public:
   virtual void visit(ForStmt& s) = 0;  
   virtual void visit(IfStmt& s) = 0;  
   virtual void visit(VarDeclStmt& s) = 0;  
-  virtual void visit(AssignStmt& s) = 0;  
+  virtual void visit(AssignStmt& s) = 0;
+  virtual void visit(DeleteStmt& s) = 0;  
   virtual void visit(CallExpr& e) = 0;  
   virtual void visit(Expr& e) = 0;  
   virtual void visit(SimpleTerm& t) = 0;  
@@ -226,6 +228,12 @@ public:
   void accept(Visitor& v) { v.visit(*this); }  
 };
 
+class DeleteStmt : public Stmt
+{
+public:
+  Expr expr;
+  void accept(Visitor& v) { v.visit(*this); }  
+};
 
 class WhileStmt : public Stmt
 {

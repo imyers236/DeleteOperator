@@ -236,6 +236,12 @@ void ASTParser::stmt(std::vector<std::shared_ptr<Stmt>>& s)
     ret_stmt(r);
     s.push_back(std::make_shared<ReturnStmt>(r));
   }
+  else if(match(TokenType::DELETE))
+  {
+    DeleteStmt d;
+    delete_stmt(d);
+    s.push_back(std::make_shared<DeleteStmt>(d));
+  }
   else
     error("Expecting stmnt");
 }
@@ -259,6 +265,12 @@ void ASTParser::assign_stmt(AssignStmt& a)
   lvalue(a.lvalue);
   eat(TokenType::ASSIGN, "Expecting ASSIGN");
   expr(a.expr);
+}
+
+void ASTParser::delete_stmt(DeleteStmt& d)
+{
+  eat(TokenType::DELETE, "Expecting ASSIGN");
+  expr(d.expr);
 }
 
 // Finds what kind of lvalue is occuring

@@ -213,6 +213,23 @@ void SemanticChecker::visit(ReturnStmt& s)
   }
 }
 
+void SemanticChecker::visit(DeleteStmt& s)
+{
+  s.expr.accept(*this);
+  if(!(struct_defs.contains(curr_type.type_name)) && !(curr_type.is_array))
+  {
+    error("Invalid type " + curr_type.type_name + " when expected struct or array", s.expr.first_token());
+  }
+  else if(struct_defs.contains(curr_type.type_name))
+  {
+    struct_defs[curr_type.type_name] = NULL;
+  }
+  else
+  {
+    
+  }
+}
+
 
 /**
  * Checks the condition, and then check the statements

@@ -25,6 +25,7 @@ public:
   void visit(IfStmt& s);
   void visit(VarDeclStmt& s);
   void visit(AssignStmt& s);
+  void visit(DeleteStmt& s);
   void visit(CallExpr& e);
   void visit(Expr& e);
   void visit(SimpleTerm& t); 

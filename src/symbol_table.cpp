@@ -36,6 +36,15 @@ void SymbolTable::add(const string& name, const DataType& info)
     environments.back()[name] = info;
 }
 
+/*
+void SymbolTable::remove(const string& name)
+{
+  for (int i = environments.size() - 1; i >= 0; --i) 
+    if (environments[i].contains(name))
+      environments[i].at(name) = nullptr;
+}
+*/
+
 bool SymbolTable::name_exists(const string& name) const
 {
   for (int i = environments.size() - 1; i >= 0; --i)

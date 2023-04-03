@@ -45,6 +45,7 @@ private:
   void stmt(std::vector<std::shared_ptr<Stmt>>& s);
   void vdecl_stmt(VarDeclStmt& v);
   void assign_stmt(AssignStmt& a);
+  void delete_stmt(DeleteStmt& d);
   void lvalue(std::vector<VarRef>& p);
   void if_stmt(IfStmt& i);
   void if_stmt_tail(IfStmt& i);

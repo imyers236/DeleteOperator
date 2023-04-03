@@ -44,6 +44,7 @@ private:
   void stmt();
   void vdecl_stmt();
   void assign_stmt();
+  void delete_stmt();
   void lvalue();
   void if_stmt();
   void if_stmt_tail();

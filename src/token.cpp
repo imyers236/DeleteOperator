@@ -72,7 +72,8 @@ std::string to_string(const Token& token)
     {TokenType::IF, "IF"}, {TokenType::ELSEIF, "ELSEIF"},
     {TokenType::ELSE, "ELSE"}, {TokenType::AND, "AND"},
     {TokenType::OR, "OR"}, {TokenType::NOT, "NOT"},
-    {TokenType::NEW, "NEW"}, {TokenType::RETURN, "RETURN"}
+    {TokenType::NEW, "NEW"}, {TokenType::RETURN, "RETURN"},
+    {TokenType::DELETE, "DELETE"}
   };
   return std::to_string(token.line()) + ", "
     + std::to_string(token.column()) + ": "

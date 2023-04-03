@@ -109,6 +109,12 @@ void PrintVisitor::visit(ReturnStmt& s)
   s.expr.accept(*this);
 }
 
+void PrintVisitor::visit(DeleteStmt& s)
+{
+  out << "delete ";
+  s.expr.accept(*this);
+}
+
 void PrintVisitor::visit(WhileStmt& s)
 {
   out << "while (";

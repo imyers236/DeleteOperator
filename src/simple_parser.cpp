@@ -147,6 +147,8 @@ void SimpleParser::stmt()
     for_stmt();
   else if(match(TokenType::RETURN))
     ret_stmt();
+  else if(match(TokenType::DELETE))
+    delete_stmt();
   else
     error("Expecting stmnt");
 }
@@ -160,6 +162,12 @@ void SimpleParser::vdecl_stmt()
   }
   eat(TokenType::ID, "Expecting ID");
   eat(TokenType::ASSIGN, "Expecting ASSIGN");
+  expr();
+}
+
+void SimpleParser::delete_stmt()
+{
+  eat(TokenType::DELETE, "Expecting Delete");
   expr();
 }
 
